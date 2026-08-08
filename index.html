@@ -205,7 +205,7 @@
       <div class="switch" id="mamaSwitch" onclick="toggleMama()"><div class="knob"></div></div>
     </div>
 
-    <div class="section-label">子供の習い事</div>
+    <div class="section-label">行事・習い事</div>
     <div class="kidgrid" id="kidGrid"></div>
 
     <button class="close-btn" onclick="closeDaySheet()">閉じる</button>
@@ -241,7 +241,7 @@ const db = firebase.firestore();
 const WORK_SHIFTS = [...Array(15)].map((_,i)=>String(601+i)).concat(["671","672","日勤","G予備","臨行路"]);
 const REST_SHIFTS = ["特休","公休","年休"];
 const NO_NEXTDAY = ["671","672"]; // 翌日「〜」を出さないシフト
-const KIDS = ["マリンバ","サッカー","ママ友会","図書館"];
+const KIDS = ["旅行","帰省","マリンバ","サッカー","ママ友会","図書館"];
 
 let shiftMaster = {}; // { "601": {start:"08:57", end:"10:09"} , ... }
 WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").forEach(s=> shiftMaster[s] = {start:"08:57", end:"10:09"});
