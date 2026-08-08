@@ -109,6 +109,8 @@
     cursor:pointer;position:relative;
   }
   .cell.empty{background:transparent;border:none;}
+  .cell.today{border:2px solid var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .cell.today .datenum{color:var(--accent);font-weight:bold;}
   .cell .datenum{font-size:11px;color:#a49c8d;}
   .cell .tag{
     font-size:10px;border-radius:5px;padding:1px 4px;margin-top:2px;
@@ -180,6 +182,20 @@
   <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
 </div>
 <div class="grid" id="grid"></div>
+
+<div style="display:flex;gap:8px;padding:10px 6px 20px;">
+  <button onclick="openNoteView('mama')" style="flex:1;padding:12px;border:none;border-radius:10px;background:var(--mama);color:#fff;font-size:14px;">ママ</button>
+  <button onclick="openNoteView('papa')" style="flex:1;padding:12px;border:none;border-radius:10px;background:var(--papa);color:#fff;font-size:14px;">パパ</button>
+</div>
+
+<!-- ママ/パパ メモ一覧シート(縦スクロール) -->
+<div class="sheet-overlay" id="noteOverlay">
+  <div class="sheet" style="max-height:90vh;">
+    <h2 id="noteTitle">メモ</h2>
+    <div id="noteList"></div>
+    <button class="close-btn" onclick="closeNoteView()">閉じる</button>
+  </div>
+</div>
 
 <!-- 日付編集シート -->
 <div class="sheet-overlay" id="daySheet">
@@ -339,6 +355,10 @@ function renderGrid(){
     const info = monthData[key] || {};
     const cell = document.createElement("div");
     cell.className="cell";
+    const todayObj = new Date();
+    if(y===todayObj.getFullYear() && m===todayObj.getMonth() && d===todayObj.getDate()){
+      cell.className += " today";
+    }
     cell.onclick = ()=>openDaySheet(key,d);
 
     let html = `<div class="datenum">${d}</div>`;
@@ -468,6 +488,12 @@ function closeDaySheet(){
 
 /* ===== シフトマスタ編集 ===== */
 function openMaster(){
+  const pin = prompt("暗証番号を入力してください(パパのみ操作可)");
+  if(pin === null) return; // キャンセル
+  if(pin !== "1219"){
+    alert("暗証番号が違います");
+    return;
+  }
   const table = document.getElementById("masterTable");
   table.innerHTML = WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").concat(["日勤"]).map(s=>{
     const t = shiftMaster[s] || {start:"",end:""};
@@ -487,6 +513,50 @@ function saveMasterAndClose(){
   });
   saveMaster();
   document.getElementById("masterSheet").classList.remove("open");
+}
+
+/* ===== ママ/パパ メモ(縦スクロール自由記入) ===== */
+let noteCurrentPerson = null;
+
+function openNoteView(person){
+  noteCurrentPerson = person;
+  const label = person === "mama" ? "ママ" : "パパ";
+  document.getElementById("noteTitle").textContent = `${label}のメモ ・ ${current.getFullYear()}年${current.getMonth()+1}月`;
+
+  const y = current.getFullYear(), m = current.getMonth();
+  const lastDate = new Date(y,m+1,0).getDate();
+  const weekLabels = ["日","月","火","水","木","金","土"];
+  const noteField = person + "Note";
+
+  const list = document.getElementById("noteList");
+  list.innerHTML = "";
+  for(let d=1; d<=lastDate; d++){
+    const key = dateKey(y,m,d);
+    const info = monthData[key] || {};
+    const wd = new Date(y,m,d).getDay();
+    const row = document.createElement("div");
+    row.style.cssText = "border-bottom:1px solid var(--line);padding:8px 2px;";
+    const dateColor = wd===0 ? "var(--mama)" : (wd===6 ? "var(--papa)" : "var(--ink)");
+    row.innerHTML = `<div style="font-size:11px;color:${dateColor};margin-bottom:4px;">${m+1}月${d}日(${weekLabels[wd]})</div>
+      <textarea data-key="${key}" placeholder="メモを入力" style="width:100%;min-height:40px;border:1px solid var(--line);border-radius:8px;padding:6px;font-size:13px;font-family:inherit;resize:vertical;">${info[noteField] || ""}</textarea>`;
+    list.appendChild(row);
+  }
+
+  // 入力確定時(フォーカスが外れた時)に保存
+  list.querySelectorAll("textarea").forEach(ta=>{
+    ta.addEventListener("blur", e=>{
+      const k = e.target.getAttribute("data-key");
+      const info = monthData[k] || {};
+      info[noteField] = e.target.value;
+      saveDay(k, info);
+    });
+  });
+
+  document.getElementById("noteOverlay").classList.add("open");
+}
+
+function closeNoteView(){
+  document.getElementById("noteOverlay").classList.remove("open");
 }
 
 /* ===== 初期化 ===== */
