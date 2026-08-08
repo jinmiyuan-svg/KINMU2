@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>家族カレンダー</title>
 <script>
   /* ===== エラー表示オーバーレイ(デバッグ用) ===== */
@@ -162,11 +162,11 @@
   .close-btn{width:100%;margin-top:16px;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;cursor:pointer;}
   .mini{font-size:11px;color:#8a8378;margin-top:8px;}
   .rinko-inputs{display:flex;gap:8px;margin-top:8px;}
-  .rinko-inputs input, .rinko-inputs select{flex:1;padding:6px;border:1px solid var(--line);border-radius:6px;font-size:12px;}
+  .rinko-inputs input, .rinko-inputs select{flex:1;padding:6px;border:1px solid var(--line);border-radius:6px;font-size:16px;}
 
   .master-table{width:100%;border-collapse:collapse;font-size:12px;}
   .master-table td{border-bottom:1px solid var(--line);padding:6px 4px;}
-  .master-table input{width:60px;border:1px solid var(--line);border-radius:6px;padding:3px;font-size:12px;}
+  .master-table input{width:60px;border:1px solid var(--line);border-radius:6px;padding:3px;font-size:16px;}
   .status{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11px;padding:4px 10px;border-radius:12px;opacity:0;transition:.3s;pointer-events:none;z-index:99;}
   .status.show{opacity:.85;}
 </style>
@@ -572,7 +572,7 @@ function openNoteView(person){
     row.style.cssText = "border-bottom:1px solid var(--line);padding:8px 2px;";
     const dateColor = wd===0 ? "var(--mama)" : (wd===6 ? "var(--papa)" : "var(--ink)");
     row.innerHTML = `<div style="font-size:11px;color:${dateColor};margin-bottom:4px;">${m+1}月${d}日(${weekLabels[wd]})</div>
-      <textarea data-key="${key}" placeholder="メモを入力" style="width:100%;min-height:40px;border:1px solid var(--line);border-radius:8px;padding:6px;font-size:13px;font-family:inherit;resize:vertical;">${info[noteField] || ""}</textarea>`;
+      <textarea data-key="${key}" placeholder="メモを入力" style="width:100%;min-height:40px;border:1px solid var(--line);border-radius:8px;padding:6px;font-size:16px;font-family:inherit;resize:vertical;">${info[noteField] || ""}</textarea>`;
     list.appendChild(row);
   }
 
