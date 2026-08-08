@@ -292,6 +292,21 @@ function unlockBodyScroll(){
   document.body.style.overflow = "";
 }
 
+/* ===== 入力後のズーム残り対策(iOSがuser-scalable=noを無視する場合の保険) ===== */
+function resetViewportZoom(){
+  const meta = document.querySelector('meta[name="viewport"]');
+  if(!meta) return;
+  const original = meta.getAttribute('content');
+  meta.setAttribute('content', original + ',shrink-to-fit=no');
+  setTimeout(()=>{ meta.setAttribute('content', original); }, 50);
+}
+document.addEventListener('focusout', function(e){
+  const t = e.target;
+  if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')){
+    resetViewportZoom();
+  }
+}, true);
+
 function showStatus(msg){
   const el = document.getElementById("statusMsg");
   el.textContent = msg; el.classList.add("show");
@@ -592,6 +607,16 @@ function closeNoteView(){
   document.getElementById("noteOverlay").classList.remove("open");
   unlockBodyScroll();
 }
+
+/* ===== 画面復帰時に再描画(日付をまたいでもズレないように) ===== */
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible"){
+    renderGrid();
+  }
+});
+window.addEventListener("pageshow", function(){
+  renderGrid();
+});
 
 /* ===== 初期化 ===== */
 updateLabel();
