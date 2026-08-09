@@ -229,17 +229,8 @@
     <div class="mini" id="papaTimeInfo"></div>
 
     <div id="papaDetailBox" class="detail-box" style="display:none;">
-      <div class="detail-title">勤務時間</div>
-      <div class="time-row">
-        <input type="time" id="papaStart" aria-label="勤務開始">
-        <span>〜</span>
-        <input type="time" id="papaEnd" aria-label="勤務終了">
-      </div>
-      <div class="detail-title" style="margin-top:12px;">担当列車（最大10本）</div>
-      <div class="train-grid" id="trainGrid"></div>
-      <div class="mini">数字だけ入力すると自動で「A」を付けて保存します。例：7139 → 7139A</div>
-      <div class="detail-title" style="margin-top:12px;">泊まり地</div>
-      <div class="stay-grid" id="stayGrid"></div>
+      <div class="detail-title">勤務詳細(シフト設定より自動反映)</div>
+      <div class="mini" id="papaDetailText" style="white-space:pre-line;"></div>
     </div>
 
     <div class="section-label">ママ</div>
@@ -259,7 +250,8 @@
 <div class="sheet-overlay" id="masterSheet">
   <div class="sheet">
     <h2>シフト確認・時間編集</h2>
-    <table class="master-table" id="masterTable"></table>
+    <div class="mini">ここで設定した内容(時間・列車・泊まり地)は、そのシフトを選んだ全ての日に自動で反映されます。</div>
+    <div id="masterList"></div>
     <button class="close-btn" onclick="saveMasterAndClose()">保存して閉じる</button>
   </div>
 </div>
@@ -287,10 +279,9 @@ const NO_NEXTDAY = ["671","672"]; // 翌日「〜」を出さないシフト
 const KIDS = ["旅行","帰省","マリンバ","サッカー","ママ友会","図書館"];
 const STAYS = ["博総","博多","小倉","新下関","広島","広運","岡山","岡運","姫路","西明石","新大阪","大一両"];
 
-let shiftMaster = {}; // { "601": {start:"08:57", end:"10:09"} , ... }
-WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").forEach(s=> shiftMaster[s] = {start:"08:57", end:"10:09"});
+let shiftMaster = {}; // { "601": {start:"08:57", end:"10:09", trains:[], stay:""} , ... }
+WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").forEach(s=> shiftMaster[s] = {start:"08:57", end:"10:09", trains:[], stay:""});
 shiftMaster["日勤"] = {start:"08:30", end:"17:15"};
-shiftMaster["G予備"] = {start:"08:57", end:"10:09"};
 
 let current = new Date();
 current.setDate(1);
@@ -430,8 +421,11 @@ function renderGrid(){
     if(info.papaType){
       const isRest = REST_SHIFTS.includes(info.papaType);
       html += `<span class="tag ${isRest?'rest':'papa'}">${info.papaType}</span>`;
-      if(!isRest && info.stay) html += `<span class="tag papa">泊:${info.stay}</span>`;
-      if(!isRest && info.trains && info.trains.length) html += `<span class="tag papa">${info.trains.join("・")}</span>`;
+      if(!isRest){
+        const m = shiftMaster[info.papaType];
+        if(m && m.stay) html += `<span class="tag papa">泊:${m.stay}</span>`;
+        if(m && m.trains && m.trains.length) html += `<span class="tag papa">${m.trains.join("・")}</span>`;
+      }
     }
     // 翌日「〜」表示チェック(月初は前月末データを参照)
     let prevInfo;
@@ -505,53 +499,16 @@ function openDaySheet(key, day){
 
 function renderPapaDetails(info){
   const box = document.getElementById("papaDetailBox");
-  const active = !!info.papaType && !REST_SHIFTS.includes(info.papaType);
+  const active = !!info.papaType && !REST_SHIFTS.includes(info.papaType) && info.papaType !== "臨行路" && info.papaType !== "日勤";
   box.style.display = active ? "block" : "none";
   if(!active) return;
 
-  const master = shiftMaster[info.papaType] || {start:"", end:""};
-  document.getElementById("papaStart").value = info.papaStart || master.start || "";
-  document.getElementById("papaEnd").value = info.papaEnd || master.end || "";
-
-  const trains = info.trains || [];
-  document.getElementById("trainGrid").innerHTML = Array.from({length:10}, (_,i)=>{
-    const v = trains[i] || "";
-    return `<input type="text" inputmode="numeric" maxlength="12" data-train-index="${i}" placeholder="${i+1}. 列車番号" value="${v}">`;
-  }).join("");
-
-  const stay = info.stay || "";
-  document.getElementById("stayGrid").innerHTML = STAYS.map(x=>
-    `<div class="stay-chip ${stay===x?'active':''}" onclick="selectStay('${x}')">${x}</div>`
-  ).join("");
+  const m = shiftMaster[info.papaType] || {};
+  const parts = [];
+  if(m.trains && m.trains.length) parts.push(`列車: ${m.trains.join("・")}`);
+  parts.push(`泊まり地: ${m.stay || "未設定"}`);
+  document.getElementById("papaDetailText").textContent = parts.join("\n");
 }
-
-function savePapaDetail(){
-  if(!selectedDateKey) return;
-  const info = currentDayData();
-  const start = document.getElementById("papaStart").value;
-  const end = document.getElementById("papaEnd").value;
-  const trains = Array.from(document.querySelectorAll("#trainGrid input")).map(el=>{
-    const raw = el.value.trim().replace(/A$/i, "");
-    return raw ? raw + "A" : "";
-  }).filter(Boolean);
-  info.papaStart = start;
-  info.papaEnd = end;
-  info.trains = trains.slice(0,10);
-  saveDay(selectedDateKey, info);
-}
-
-function selectStay(stay){
-  const info = currentDayData();
-  info.stay = stay;
-  saveDay(selectedDateKey, info);
-  renderPapaDetails(info);
-}
-
-document.addEventListener("change", function(e){
-  if(e.target && (e.target.id === "papaStart" || e.target.id === "papaEnd" || e.target.matches("#trainGrid input"))){
-    savePapaDetail();
-  }
-});
 
 function updateTimeInfo(type){
   const el = document.getElementById("papaTimeInfo");
@@ -613,23 +570,66 @@ function openMaster(){
     alert("暗証番号が違います");
     return;
   }
-  const table = document.getElementById("masterTable");
-  table.innerHTML = WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").concat(["日勤"]).map(s=>{
-    const t = shiftMaster[s] || {start:"",end:""};
-    return `<tr><td>${s}</td>
-      <td><input type="time" id="m_${s}_s" value="${t.start}"></td>
-      <td>〜翌</td>
-      <td><input type="time" id="m_${s}_e" value="${t.end}"></td></tr>`;
+  const codes = WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").concat(["日勤"]);
+  const list = document.getElementById("masterList");
+  list.innerHTML = codes.map(s=>{
+    const t = shiftMaster[s] || {start:"",end:"",trains:[],stay:""};
+    const hasExtra = s !== "日勤"; // 日勤には列車・泊まり地の概念がない
+    const trainsHtml = !hasExtra ? "" : `
+      <div class="detail-title" style="margin-top:10px;">担当列車（最大10本）</div>
+      <div class="train-grid">
+        ${Array.from({length:10}, (_,i)=>{
+          const v = (t.trains && t.trains[i]) || "";
+          return `<input type="text" inputmode="numeric" maxlength="12" data-code="${s}" data-train-index="${i}" placeholder="${i+1}. 列車番号" value="${v}">`;
+        }).join("")}
+      </div>
+      <div class="mini">数字だけ入力すると自動で「A」を付けて保存します。例：7139 → 7139A</div>
+      <div class="detail-title" style="margin-top:10px;">泊まり地</div>
+      <div class="stay-grid" data-stay-group="${s}">
+        ${STAYS.map(x=>`<div class="stay-chip ${t.stay===x?'active':''}" data-stay="${x}">${x}</div>`).join("")}
+        <div class="stay-chip ${!t.stay?'active':''}" data-stay="">なし</div>
+      </div>`;
+    return `<div class="detail-box">
+      <div class="detail-title" style="font-size:14px;">${s}</div>
+      <div class="time-row">
+        <input type="time" id="m_${s}_s" value="${t.start||''}">
+        <span>〜翌</span>
+        <input type="time" id="m_${s}_e" value="${t.end||''}">
+      </div>
+      ${trainsHtml}
+    </div>`;
   }).join("");
+
+  // 泊まり地チップの選択切り替え
+  list.querySelectorAll(".stay-chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{
+      const group = chip.closest(".stay-grid");
+      group.querySelectorAll(".stay-chip").forEach(c=>c.classList.remove("active"));
+      chip.classList.add("active");
+    });
+  });
+
   document.getElementById("masterSheet").classList.add("open");
   lockBodyScroll();
 }
 function saveMasterAndClose(){
-  WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").concat(["日勤"]).forEach(s=>{
-    shiftMaster[s] = {
+  const codes = WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").concat(["日勤"]);
+  codes.forEach(s=>{
+    const entry = {
       start: document.getElementById(`m_${s}_s`).value,
       end: document.getElementById(`m_${s}_e`).value
     };
+    if(s !== "日勤"){
+      const trainInputs = document.querySelectorAll(`.train-grid input[data-code="${s}"]`);
+      const trains = Array.from(trainInputs).map(el=>{
+        const raw = el.value.trim().replace(/A$/i, "");
+        return raw ? raw + "A" : "";
+      }).filter(Boolean).slice(0,10);
+      const activeChip = document.querySelector(`.stay-grid[data-stay-group="${s}"] .stay-chip.active`);
+      entry.trains = trains;
+      entry.stay = activeChip ? activeChip.getAttribute("data-stay") : "";
+    }
+    shiftMaster[s] = entry;
   });
   saveMaster();
   document.getElementById("masterSheet").classList.remove("open");
