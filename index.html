@@ -167,6 +167,15 @@
   .master-table{width:100%;border-collapse:collapse;font-size:12px;}
   .master-table td{border-bottom:1px solid var(--line);padding:6px 4px;}
   .master-table input{width:60px;border:1px solid var(--line);border-radius:6px;padding:3px;font-size:16px;}
+  .detail-box{margin-top:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;}
+  .detail-title{font-size:12px;font-weight:bold;margin-bottom:6px;}
+  .time-row{display:flex;gap:8px;align-items:center;}
+  .time-row input{flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:7px;font-size:16px;}
+  .train-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+  .train-grid input{width:100%;padding:7px;border:1px solid var(--line);border-radius:7px;font-size:16px;}
+  .stay-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .stay-chip{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 2px;text-align:center;font-size:11px;cursor:pointer;}
+  .stay-chip.active{background:var(--papa);color:#fff;border-color:var(--papa);}
   .status{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11px;padding:4px 10px;border-radius:12px;opacity:0;transition:.3s;pointer-events:none;z-index:99;}
   .status.show{opacity:.85;}
 </style>
@@ -219,6 +228,20 @@
     </div>
     <div class="mini" id="papaTimeInfo"></div>
 
+    <div id="papaDetailBox" class="detail-box" style="display:none;">
+      <div class="detail-title">勤務時間</div>
+      <div class="time-row">
+        <input type="time" id="papaStart" aria-label="勤務開始">
+        <span>〜</span>
+        <input type="time" id="papaEnd" aria-label="勤務終了">
+      </div>
+      <div class="detail-title" style="margin-top:12px;">担当列車（最大10本）</div>
+      <div class="train-grid" id="trainGrid"></div>
+      <div class="mini">数字だけ入力すると自動で「A」を付けて保存します。例：7139 → 7139A</div>
+      <div class="detail-title" style="margin-top:12px;">泊まり地</div>
+      <div class="stay-grid" id="stayGrid"></div>
+    </div>
+
     <div class="section-label">ママ</div>
     <div class="toggle-row">
       <span>勤務あり</span>
@@ -262,6 +285,7 @@ const WORK_SHIFTS = [...Array(15)].map((_,i)=>String(601+i)).concat(["671","672"
 const REST_SHIFTS = ["特休","公休","年休"];
 const NO_NEXTDAY = ["671","672"]; // 翌日「〜」を出さないシフト
 const KIDS = ["旅行","帰省","マリンバ","サッカー","ママ友会","図書館"];
+const STAYS = ["博総","博多","小倉","新下関","広島","広運","岡山","岡運","姫路","西明石","新大阪","大一両"];
 
 let shiftMaster = {}; // { "601": {start:"08:57", end:"10:09"} , ... }
 WORK_SHIFTS.filter(s=>s!=="日勤"&&s!=="臨行路").forEach(s=> shiftMaster[s] = {start:"08:57", end:"10:09"});
@@ -406,6 +430,8 @@ function renderGrid(){
     if(info.papaType){
       const isRest = REST_SHIFTS.includes(info.papaType);
       html += `<span class="tag ${isRest?'rest':'papa'}">${info.papaType}</span>`;
+      if(!isRest && info.stay) html += `<span class="tag papa">泊:${info.stay}</span>`;
+      if(!isRest && info.trains && info.trains.length) html += `<span class="tag papa">${info.trains.join("・")}</span>`;
     }
     // 翌日「〜」表示チェック(月初は前月末データを参照)
     let prevInfo;
@@ -463,6 +489,7 @@ function openDaySheet(key, day){
     rinkoBox.style.display="none";
   }
   updateTimeInfo(info.papaType);
+  renderPapaDetails(info);
 
   const sw = document.getElementById("mamaSwitch");
   sw.classList.toggle("on", !!info.mama);
@@ -475,6 +502,56 @@ function openDaySheet(key, day){
   document.getElementById("daySheet").classList.add("open");
   lockBodyScroll();
 }
+
+function renderPapaDetails(info){
+  const box = document.getElementById("papaDetailBox");
+  const active = !!info.papaType && !REST_SHIFTS.includes(info.papaType);
+  box.style.display = active ? "block" : "none";
+  if(!active) return;
+
+  const master = shiftMaster[info.papaType] || {start:"", end:""};
+  document.getElementById("papaStart").value = info.papaStart || master.start || "";
+  document.getElementById("papaEnd").value = info.papaEnd || master.end || "";
+
+  const trains = info.trains || [];
+  document.getElementById("trainGrid").innerHTML = Array.from({length:10}, (_,i)=>{
+    const v = trains[i] || "";
+    return `<input type="text" inputmode="numeric" maxlength="12" data-train-index="${i}" placeholder="${i+1}. 列車番号" value="${v}">`;
+  }).join("");
+
+  const stay = info.stay || "";
+  document.getElementById("stayGrid").innerHTML = STAYS.map(x=>
+    `<div class="stay-chip ${stay===x?'active':''}" onclick="selectStay('${x}')">${x}</div>`
+  ).join("");
+}
+
+function savePapaDetail(){
+  if(!selectedDateKey) return;
+  const info = currentDayData();
+  const start = document.getElementById("papaStart").value;
+  const end = document.getElementById("papaEnd").value;
+  const trains = Array.from(document.querySelectorAll("#trainGrid input")).map(el=>{
+    const raw = el.value.trim().replace(/A$/i, "");
+    return raw ? raw + "A" : "";
+  }).filter(Boolean);
+  info.papaStart = start;
+  info.papaEnd = end;
+  info.trains = trains.slice(0,10);
+  saveDay(selectedDateKey, info);
+}
+
+function selectStay(stay){
+  const info = currentDayData();
+  info.stay = stay;
+  saveDay(selectedDateKey, info);
+  renderPapaDetails(info);
+}
+
+document.addEventListener("change", function(e){
+  if(e.target && (e.target.id === "papaStart" || e.target.id === "papaEnd" || e.target.matches("#trainGrid input"))){
+    savePapaDetail();
+  }
+});
 
 function updateTimeInfo(type){
   const el = document.getElementById("papaTimeInfo");
