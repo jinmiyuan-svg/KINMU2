@@ -204,9 +204,12 @@
 <!-- ママ/パパ メモ一覧シート(縦スクロール) -->
 <div class="sheet-overlay" id="noteOverlay">
   <div class="sheet" style="max-height:90vh;max-height:90dvh;">
-    <h2 id="noteTitle">メモ</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span id="noteTitle">メモ</span>
+      <button onclick="closeNoteView()" style="flex-shrink:0;border:none;background:var(--accent);color:#fff;font-size:12px;padding:7px 12px;border-radius:8px;">保存して閉じる</button>
+    </h2>
     <div id="noteList"></div>
-    <button class="close-btn" onclick="closeNoteView()">閉じる</button>
+    <button class="close-btn" onclick="closeNoteView()">保存して閉じる</button>
   </div>
 </div>
 
@@ -249,7 +252,10 @@
 <!-- シフトマスタ編集シート -->
 <div class="sheet-overlay" id="masterSheet">
   <div class="sheet">
-    <h2>シフト確認・時間編集</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span>シフト確認・時間編集</span>
+      <button onclick="saveMasterAndClose()" style="flex-shrink:0;border:none;background:var(--accent);color:#fff;font-size:12px;padding:7px 12px;border-radius:8px;">保存して閉じる</button>
+    </h2>
     <div class="mini">ここで設定した内容(時間・列車・泊まり地)は、そのシフトを選んだ全ての日に自動で反映されます。</div>
     <div id="masterList"></div>
     <button class="close-btn" onclick="saveMasterAndClose()">保存して閉じる</button>
@@ -421,11 +427,6 @@ function renderGrid(){
     if(info.papaType){
       const isRest = REST_SHIFTS.includes(info.papaType);
       html += `<span class="tag ${isRest?'rest':'papa'}">${info.papaType}</span>`;
-      if(!isRest){
-        const m = shiftMaster[info.papaType];
-        if(m && m.stay) html += `<span class="tag papa">泊:${m.stay}</span>`;
-        if(m && m.trains && m.trains.length) html += `<span class="tag papa">${m.trains.join("・")}</span>`;
-      }
     }
     // 翌日「〜」表示チェック(月初は前月末データを参照)
     let prevInfo;
@@ -681,6 +682,9 @@ function openNoteView(person){
 }
 
 function closeNoteView(){
+  if(document.activeElement && document.activeElement.tagName === "TEXTAREA"){
+    document.activeElement.blur(); // フォーカス中のメモを確実に保存させる
+  }
   document.getElementById("noteOverlay").classList.remove("open");
   unlockBodyScroll();
 }
