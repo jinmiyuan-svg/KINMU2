@@ -125,6 +125,8 @@
   .tag.mama{background:var(--mama-bg);color:var(--mama);}
   .tag.kid{background:var(--kid-bg);color:var(--kid);font-size:9px;}
   .kidwrap{display:flex;flex-wrap:wrap;gap:2px;margin-top:auto;}
+  .event-item{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;}
+  .event-item .x{color:var(--accent);font-weight:bold;cursor:pointer;padding:0 4px;}
 
   .sheet-overlay{
     position:fixed;inset:0;background:rgba(30,26,20,.4);
@@ -243,7 +245,12 @@
     </div>
 
     <div class="section-label">行事・習い事</div>
-    <div class="kidgrid" id="kidGrid"></div>
+    <div id="eventList"></div>
+    <div class="btnrow" id="eventPresets"></div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <input id="customEventInput" placeholder="自由入力で追加(例: ママ友達と遊ぶ)" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:16px;">
+      <button onclick="addCustomEvent()" style="border:none;background:var(--kid);color:#fff;border-radius:8px;padding:0 14px;font-size:13px;">追加</button>
+    </div>
 
     <button class="close-btn" onclick="closeDaySheet()">閉じる</button>
   </div>
@@ -450,8 +457,12 @@ function renderGrid(){
     if(info.mama){
       html += `<span class="tag mama">ママ</span>`;
     }
-    if(info.kids && info.kids.length){
-      html += `<div class="kidwrap">`+ info.kids.map(k=>`<span class="tag kid">${k}</span>`).join("") + `</div>`;
+    const events = getDayEvents(info);
+    if(events.length){
+      html += `<div class="kidwrap">`+ events.map(ev=>{
+        const label = (ev.start||ev.end) ? `${ev.name} ${ev.start||''}${(ev.start&&ev.end)?'-':''}${ev.end||''}` : ev.name;
+        return `<span class="tag kid">${label}</span>`;
+      }).join("") + `</div>`;
     }
     cell.innerHTML = html;
     grid.appendChild(cell);
@@ -489,13 +500,73 @@ function openDaySheet(key, day){
   const sw = document.getElementById("mamaSwitch");
   sw.classList.toggle("on", !!info.mama);
 
-  const kidGrid = document.getElementById("kidGrid");
-  kidGrid.innerHTML = KIDS.map(k=>
-    `<div class="kidchip ${info.kids&&info.kids.includes(k)?'active':''}" onclick="toggleKid('${k}')">${k}</div>`
+  renderEventList(info);
+  const presetBox = document.getElementById("eventPresets");
+  presetBox.innerHTML = KIDS.map(k=>
+    `<div class="chip" onclick="addPresetEvent('${k}')">${k}</div>`
   ).join("");
 
   document.getElementById("daySheet").classList.add("open");
   lockBodyScroll();
+}
+
+/* ===== 行事・習い事(時間付き・自由入力対応) ===== */
+function getDayEvents(info){
+  if(info.events && info.events.length) return info.events;
+  if(info.kids && info.kids.length) return info.kids.map(k=>({name:k, start:"", end:""}));
+  return [];
+}
+
+function renderEventList(info){
+  const events = getDayEvents(info);
+  const list = document.getElementById("eventList");
+  list.innerHTML = events.map((ev,i)=>`
+    <div class="event-item">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;font-weight:bold;color:var(--kid);">${ev.name}</span>
+        <span class="x" onclick="removeEvent(${i})">×</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+        <input type="time" value="${ev.start||''}" onchange="updateEventTime(${i},'start',this.value)" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px;font-size:16px;">
+        <span style="font-size:11px;color:#8a8378;">〜</span>
+        <input type="time" value="${ev.end||''}" onchange="updateEventTime(${i},'end',this.value)" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:6px;font-size:16px;">
+      </div>
+    </div>
+  `).join("") || `<div class="mini">まだ追加されていません</div>`;
+}
+
+function addPresetEvent(name){
+  const info = currentDayData();
+  const events = getDayEvents(info).slice();
+  events.push({name, start:"", end:""});
+  info.events = events;
+  saveDay(selectedDateKey, info);
+  renderEventList(info);
+}
+
+function addCustomEvent(){
+  const input = document.getElementById("customEventInput");
+  const v = input.value.trim();
+  if(!v) return;
+  addPresetEvent(v);
+  input.value = "";
+}
+
+function removeEvent(i){
+  const info = currentDayData();
+  const events = getDayEvents(info).slice();
+  events.splice(i,1);
+  info.events = events;
+  saveDay(selectedDateKey, info);
+  renderEventList(info);
+}
+
+function updateEventTime(i, field, val){
+  const info = currentDayData();
+  const events = getDayEvents(info).slice();
+  events[i] = Object.assign({}, events[i], {[field]: val});
+  info.events = events;
+  saveDay(selectedDateKey, info);
 }
 
 function renderPapaDetails(info){
@@ -547,15 +618,6 @@ function toggleMama(){
   info.mama = !info.mama;
   document.getElementById("mamaSwitch").classList.toggle("on", info.mama);
   saveDay(selectedDateKey, info);
-}
-
-function toggleKid(k){
-  const info = currentDayData();
-  info.kids = info.kids || [];
-  if(info.kids.includes(k)) info.kids = info.kids.filter(x=>x!==k);
-  else info.kids.push(k);
-  saveDay(selectedDateKey, info);
-  openDaySheet(selectedDateKey, parseInt(selectedDateKey.split("-")[2],10));
 }
 
 function closeDaySheet(){
