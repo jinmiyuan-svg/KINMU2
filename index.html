@@ -123,8 +123,13 @@
   .tag.papa{background:var(--papa-bg);color:var(--papa);}
   .tag.rest{background:var(--rest-bg);color:var(--rest);}
   .tag.mama{background:var(--mama-bg);color:var(--mama);}
-  .tag.kid{background:var(--kid-bg);color:var(--kid);font-size:9px;}
-  .kidwrap{display:flex;flex-wrap:wrap;gap:2px;margin-top:auto;}
+  .tag.kid{
+    background:var(--kid-bg);color:var(--kid);font-size:9px;
+    white-space:normal;text-overflow:clip;overflow:visible;word-break:break-word;
+    line-height:1.25;text-align:left;
+  }
+  .tag.kid .ev-time{font-size:8px;opacity:.75;display:block;}
+  .kidwrap{display:flex;flex-direction:column;gap:2px;margin-top:auto;}
   .event-item{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;}
   .event-item .x{color:var(--accent);font-weight:bold;cursor:pointer;padding:0 4px;}
 
@@ -460,8 +465,8 @@ function renderGrid(){
     const events = getDayEvents(info);
     if(events.length){
       html += `<div class="kidwrap">`+ events.map(ev=>{
-        const label = (ev.start||ev.end) ? `${ev.name} ${ev.start||''}${(ev.start&&ev.end)?'-':''}${ev.end||''}` : ev.name;
-        return `<span class="tag kid">${label}</span>`;
+        const timeLabel = (ev.start||ev.end) ? `${ev.start||''}${(ev.start&&ev.end)?'-':''}${ev.end||''}` : "";
+        return `<span class="tag kid">${ev.name}${timeLabel ? `<span class="ev-time">${timeLabel}</span>` : ``}</span>`;
       }).join("") + `</div>`;
     }
     cell.innerHTML = html;
